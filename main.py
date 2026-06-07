@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")   # ✅ آمن
 GEMINI_MODEL   = "gemini-2.5-flash"
-PORT        = int(os.environ.get("PORT", 8001))          # ✅ Railway
+PORT        = int(os.environ.get("PORT", 8080))          # ✅ Railway
 MAX_TOKENS  = 500
 MAX_Q_LEN   = 600
 TIMEOUT_SEC = 30
