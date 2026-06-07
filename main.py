@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 # ============================================================
 #  CONFIG
 # ============================================================
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_MODEL   = "gemini-2.0-flash"   # ✅ أحدث وأدق
-PORT        = int(os.environ.get("PORT", 8080))
-MAX_TOKENS  = 800   # ✅ زيادة عشان الإجابات أكتمل
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")   # ✅ آمن
+GEMINI_MODEL   = "gemini-2.5-flash"
+PORT        = int(os.environ.get("PORT", 8080))          # ✅ Railway
+MAX_TOKENS  = 500
 MAX_Q_LEN   = 600
-TIMEOUT_SEC = 45    # ✅ زيادة عشان الأسئلة المعقدة
+TIMEOUT_SEC = 30
 RATE_LIMIT  = 10
 
 _start_time = time.monotonic()
@@ -82,99 +82,52 @@ def is_rate_limited(ip: str) -> bool:
     return False
 
 # ============================================================
-#  FORMAT INSTRUCTIONS — محسّنة
+#  FORMAT INSTRUCTIONS
 # ============================================================
 FORMAT_INSTRUCTIONS = {
     "nutrition": (
         "Reply ONLY with a valid JSON object. No markdown. No explanation. "
         "Use this exact structure:\n"
         '{"food": "name", "calories": 000, "protein": 00, "fat": 00, "carbs": 00}\n'
-        "All values must be per 100g unless the user specifies a serving size. "
-        "Use USDA FoodData Central as your primary reference. "
+        "All values must be realistic and accurate per 100g or per standard serving. "
         "Protein NEVER exceeds 35g per 100g of any real food. "
-        "Fat and carbs must be physiologically realistic. "
-        "Double-check all numbers before responding. "
         "Then after the JSON, add: 💡 **You might also ask:** with one related question."
     ),
     "steps": (
-        "Reply with clear numbered steps only. Max 8 steps. "
-        "Each step must be actionable and specific. No vague instructions. "
-        "No intro, no summary. "
+        "Reply with numbered steps only. Max 8 steps. No intro, no summary. "
         "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
     ),
     "compare": (
-        "Reply with a markdown comparison table (max 5 rows, 3 columns). "
-        "Use factual, specific data in each cell — no vague terms. "
-        "End with **Verdict:** one clear sentence. "
+        "Reply with a markdown comparison table (max 4 rows, 3 columns). "
+        "End with **Verdict:** one sentence. "
         "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
     ),
     "general": (
-        "Reply in 2-5 sentences. Be specific and factual. "
-        "Use bullet points if listing 3+ items. "
-        "Avoid filler words. Every sentence must add value. "
+        "Reply in 2-5 sentences. Use bullet points if listing 3+ items. "
         "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
     ),
     "yesno": (
-        "Start with Yes or No. Then explain in 1-3 sentences with specific reasoning. "
-        "If the answer depends on context, say Yes/No but explain the condition. "
+        "Start with Yes or No. Then explain in 1-3 sentences. "
         "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
     ),
     "recipe": (
-        "Format: **Ingredients** as bullet list with exact quantities, "
-        "then **Steps** as numbered list with clear instructions. "
-        "Include cooking time and serving size. "
-        "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
-    ),
-    "medical": (
-        "Provide accurate medical information based on established medical knowledge. "
-        "Be specific and clear. Always end with: "
-        "'⚠️ Consult a doctor before making any medical decisions.' "
-        "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
-    ),
-    "fitness": (
-        "Provide science-based fitness advice. Include sets, reps, or duration where relevant. "
-        "Prioritize safety. Mention any contraindications if relevant. "
+        "Format: **Ingredients** as bullet list, then **Steps** as numbered list. "
         "Then add: 💡 **You might also ask:** or 💡 **قد يهمك أيضاً:** with one related question."
     ),
 }
 
-# ============================================================
-#  BASE SYSTEM — محسّن للدقة
-# ============================================================
 BASE_SYSTEM = (
-    "You are CuraMind, an advanced AI assistant specialized in health, fitness, nutrition, and general knowledge. "
-    "You have expert-level knowledge in: medicine, fitness, nutrition, science, math, history, technology, law, psychology, and cooking. "
-
-    # الدقة
-    "ACCURACY RULES: "
-    "Always verify numerical values before responding. "
-    "Use only scientifically proven information. "
-    "Nutritional data must match USDA FoodData Central values. "
-    "Medical information must align with WHO and peer-reviewed sources. "
-    "If you are not 100% certain of a number, give your best estimate and note it. "
-
-    # جودة الإجابة
-    "RESPONSE QUALITY: "
+    "You are an advanced AI assistant with expert-level knowledge in all fields: "
+    "medicine, fitness, nutrition, science, math, history, technology, law, psychology, cooking, and more. "
+    "Always give accurate, detailed, and well-reasoned answers. "
     "Think step by step before answering complex questions. "
+    "Always use scientifically accurate nutritional values. "
+    "Nutritional data must match real-world values from trusted sources like USDA. "
+    "Never refuse to answer. Never say 'I don't know' — always give your best reasoned answer. "
+    "Never repeat the question. Never use filler phrases. "
     "Be direct, precise, and thorough. "
-    "Never use filler phrases like 'Great question' or 'Of course'. "
-    "Never repeat the question back to the user. "
-    "Every sentence must add value. "
-    "Never say 'I don't know' — always give your best reasoned answer. "
-
-    # السلامة
-    "SAFETY RULES: "
-    "For medical questions, always recommend consulting a doctor at the end. "
-    "For fitness questions, prioritize user safety and mention contraindications if relevant. "
-    "For nutrition questions, always specify if values are per 100g or per serving. "
-
-    # اللغة
-    "LANGUAGE RULES: "
-    "Always reply in the SAME language the user writes in. "
-    "Arabic question → Arabic answer only. "
-    "English question → English answer only. "
-    "Never mix languages in the same response. "
-
+    "Always reply in the SAME language the user writes in: "
+    "Arabic question → Arabic answer only. English question → English answer only. "
     "Follow the format instruction exactly."
 )
 
@@ -195,39 +148,29 @@ def sanitize(text: str) -> str:
     return text.strip()
 
 # ============================================================
-#  CLASSIFIER — محسّن بكلمات أكتر
+#  CLASSIFIER
 # ============================================================
 _RULES: list[tuple[str, frozenset]] = [
     ("nutrition", frozenset({
         "calorie","calories","kcal","nutrition","protein","fat","carb","carbs",
-        "macro","macros","fiber","sugar","sodium","vitamin","mineral",
-        "سعرات","سعر حراري","بروتين","دهون","كربوهيدرات",
-        "تغذية","غذائية","قيمة غذائية","كيلو كالوري","ألياف","سكر","فيتامين",
+        "macro","macros","سعرات","سعر حراري","بروتين","دهون","كربوهيدرات",
+        "تغذية","غذائية","قيمة غذائية","كيلو كالوري",
     })),
     ("recipe", frozenset({
-        "recipe","cook","bake","prepare","ingredients","ingredient","make","dish",
-        "وصفة","اطبخ","حضّر","مكونات","طبخة","اعمل","طبق",
+        "recipe","cook","bake","prepare","ingredients","ingredient",
+        "وصفة","اطبخ","حضّر","مكونات","طبخة",
     })),
     ("steps", frozenset({
-        "how to","steps","plan","guide","routine","method","tips","procedure",
-        "كيف","خطوات","خطة","برنامج","طريقة","نصائح","إجراء",
+        "how to","steps","plan","guide","routine","method","tips",
+        "كيف","خطوات","خطة","برنامج","طريقة","نصائح",
     })),
     ("compare", frozenset({
-        "vs","versus","compare","difference","better","healthier","between","which","difference",
-        "مقارنة","الفرق","أفضل","أحسن","بين","أيهما","مقارنه",
-    })),
-    ("medical", frozenset({
-        "symptom","symptoms","disease","diagnosis","treatment","medicine","drug","dose",
-        "pain","doctor","hospital","sick","illness","infection","fever","blood",
-        "مرض","أعراض","علاج","دواء","جرعة","ألم","طبيب","مستشفى","حمى","دم",
-    })),
-    ("fitness", frozenset({
-        "workout","exercise","gym","muscle","weight","cardio","training","lift",
-        "تمرين","رياضة","جيم","عضلة","وزن","كارديو","تدريب",
+        "vs","versus","compare","difference","better","healthier","between","which",
+        "مقارنة","الفرق","أفضل","أحسن","بين","أيهما",
     })),
     ("yesno", frozenset({
         "is it","can i","should i","do i","does","did","was","were","is there",
-        "هل","ممكن","يمكن","هيفيد","يفيد","هيضر","يضر","ينفع","يصلح",
+        "هل","ممكن","يمكن","هيفيد","يفيد","هيضر","يضر",
     })),
 ]
 
@@ -244,30 +187,24 @@ def classify(question: str) -> str:
     return "general"
 
 # ============================================================
-#  BUILD PROMPT — محسّن
+#  BUILD PROMPT
 # ============================================================
 def build_prompt(question: str, qtype: str, lang: str) -> str:
     if lang == "arabic":
         lang_instruction = (
-            "يجب أن تجيب باللغة العربية الفصحى البسيطة فقط. "
-            "لا تستخدم الإنجليزية أبداً. "
-            "كن دقيقاً ومحدداً في إجابتك. "
-            "تحقق من الأرقام جيداً قبل الإجابة."
+            "يجب أن تجيب باللغة العربية فقط. لا تستخدم الإنجليزية أبداً. "
+            "فكّر جيداً قبل الإجابة وكن دقيقاً."
         )
     else:
         lang_instruction = (
             "You must reply in English only. Do not use Arabic. "
-            "Be specific, accurate, and concise. "
-            "Verify all numerical values before responding."
+            "Think carefully and be precise and accurate."
         )
-
-    # استخدم medical أو fitness لو مش موجودين في FORMAT_INSTRUCTIONS
-    fmt = FORMAT_INSTRUCTIONS.get(qtype, FORMAT_INSTRUCTIONS["general"])
 
     return (
         f"{BASE_SYSTEM}\n\n"
-        f"LANGUAGE: {lang_instruction}\n\n"
-        f"FORMAT: {fmt}\n\n"
+        f"{lang_instruction}\n\n"
+        f"{FORMAT_INSTRUCTIONS[qtype]}\n\n"
         f"Question: {question}"
     )
 
@@ -285,9 +222,8 @@ async def generate_async(prompt: str, question: str = "") -> str:
                         prompt,
                         generation_config=genai.types.GenerationConfig(
                             max_output_tokens=MAX_TOKENS,
-                            temperature=0.1,   # ✅ منخفض للدقة
-                            top_p=0.85,        # ✅ أكثر تركيزاً
-                            top_k=20,          # ✅ أقل عشوائية
+                            temperature=0.1,
+                            top_p=0.9,
                         )
                     )
                 ),
@@ -404,9 +340,15 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.json_response(health)
 
 
+# ============================================================
+#  GRACEFUL SHUTDOWN
+# ============================================================
 async def on_shutdown(app):
     logger.info("🛑 Server shutting down...")
 
+# ============================================================
+#  APP
+# ============================================================
 app = web.Application(middlewares=[cors_middleware])
 app.router.add_post("/ask",   handle_question)
 app.router.add_get("/health", handle_health)
@@ -414,7 +356,7 @@ app.on_shutdown.append(on_shutdown)
 
 if __name__ == "__main__":
     logger.info("=" * 55)
-    logger.info(f"  🚀 CuraMind Server | port {PORT}")
+    logger.info(f"  🚀 Gemini Server   | port {PORT}")
     logger.info(f"  🧠 Model   : {GEMINI_MODEL}")
     logger.info(f"  ⏱  Timeout : {TIMEOUT_SEC}s | MaxTok: {MAX_TOKENS}")
     logger.info(f"  🛡  RateLimit: {RATE_LIMIT} req/min per IP")
